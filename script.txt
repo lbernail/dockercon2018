@@ -1,0 +1,68 @@
+# Create deployment and service
+kubectl apply -f deployment.yaml
+kubectl get pods -o wide
+kubectl apply -f service.yaml
+kubectl get svc
+kubectl describe ep echo
+
+# Create pod and access service
+kubectl run -it test  --image appropriate/curl ash
+while true ; do curl <service ip> ; sleep 1 ; done
+
+# Readiness probe
+## Second window
+kubectl exec -it <curl pod> sh
+curl <podip>:5000/ready
+curl <podip>:5000/toggleReady
+curl <podip>:5000/ready
+
+exit
+kubectl get pods
+# [Ready : 0/1]
+kubectl describe ep echo
+kubectl describe pod <unready pod>
+# [NotReadyAddresses]
+
+## Set pod as ready
+
+# Liveness probe
+kubectl exec -it <curl pod> sh
+curl <podip>:5000/alive
+curl <podip>:5000/toggleAlive
+curl <podip>:5000/alive
+
+kubectl describe pod <dead pod>
+# Container failed liveness probe.. Container will be killed and recreated.
+kubectl get pods
+# Restarts: 1
+
+# How does that work?
+Endpoint controller sync services on events:
+- Add / Update / Delete on Services
+- Add / Update / Delete on Pod
+Sync: list pods with service selector and update endpoints
+
+# Easy to a pod to the list
+kubectl apply -f pod.yaml
+kubectl describe ep echo
+
+# [same selector]
+
+# Endoints can be "manually" modified
+## Remove label from standalone pod
+kubectl apply -f pod-no-label.yaml
+kubectl describe ep echo
+
+## Edit endpoint
+kubectl edit ep echo
+## Update nodename, pod name and pod ip
+kubectl describe ep echo
+
+## queries routed to pod
+
+# But any sync will remove this
+kubectl scale --replicas=2 deploy/echodeploy
+
+# 2 different of services
+- selector-less disable endpoint sync
+- selector will sync endpoints and remove any external modification
