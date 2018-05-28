@@ -1,8 +1,7 @@
 # Create deployment and service
-kubectl apply -f deployment.yaml
-kubectl get pods -o wide
-kubectl apply -f service.yaml
-kubectl get svc
+kubectl apply -f deployment.yaml -f service.yaml
+kubectl get all
+
 kubectl describe ep echo
 
 # Create pod and access service
@@ -45,15 +44,12 @@ Sync: list pods with service selector and update endpoints
 # Easy to a pod to the list
 kubectl apply -f pod.yaml
 kubectl describe ep echo
-
-# [same selector]
+kubectl label pod echodeploy app=echo
+kubectl describe ep echo
+kubectl label pod echodeploy app-
 
 # Endoints can be "manually" modified
-## Remove label from standalone pod
-kubectl apply -f pod-no-label.yaml
-kubectl describe ep echo
-
-## Edit endpoint
+kubectl get pods echodeploy -o wide
 kubectl edit ep echo
 ## Update nodename, pod name and pod ip
 kubectl describe ep echo
@@ -63,6 +59,46 @@ kubectl describe ep echo
 # But any sync will remove this
 kubectl scale --replicas=2 deploy/echodeploy
 
-# 2 different of services
+# 2 different types of services
 - selector-less disable endpoint sync
 - selector will sync endpoints and remove any external modification
+
+
+# iptables
+kubectl scale --replicas=3 deploy/echodeploy
+ssh ddeng@
+
+sudo iptables -t nat -L KUBE-SERVICES
+sudo iptables -t nat -L KUBE-SVC-
+sudo iptables -t nat -L KUBE-SEP-
+
+# hairpin
+# pick pod from host
+kubectl exec echodeploy-xxxx -it sh
+hostname -i
+while true ; do wget -q -O - 10.200.20.164 ; sleep 1 ; done
+
+# on host
+sudo iptables -t nat -xnvL KUBE-SEP-JVW5VSGQKTKS2CU3 ; sudo iptables -t nat -xnvL KUBE-SEP-3V46NEEGFOGNZYNM ; sudo iptables -t nat -xnvL KUBE-SEP-TG6PR7XSUYRA3RGR
+
+# affinity
+kubectl apply -f service-persistent.yaml
+curl 10.200.20.164 ; curl 10.200.20.164 ; curl 10.200.20.164
+
+sudo iptables -t nat -L KUBE-SVC-ZJMBFACUQCTMIK2C
+cat /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
+
+sudo -i
+echo -10.1.176.4 > /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
+cat /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
+curl 10.200.20.164
+
+
+# nodeport
+kubectl apply -f service-node-port.yaml
+sudo iptables -t nat -L KUBE-SERVICES
+sudo iptables -t nat -L KUBE-NODEPORTS
+while true; do curl 10.1.176.4:31017 ; sleep 1; done
+
+# external traffic policy
+kubectl apply -f service-np-local.yaml
