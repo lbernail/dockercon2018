@@ -102,3 +102,94 @@ while true; do curl 10.1.176.4:31017 ; sleep 1; done
 
 # external traffic policy
 kubectl apply -f service-np-local.yaml
+sudo iptables -t nat -L KUBE-NODEPORTS
+sudo iptables -t nat -L KUBE-XLB-XXX
+
+while true; do curl 10.1.176.4:31017 ; sleep 1; done
+
+kubectl scale --replicas=1 deploy/echodeploy
+
+# load-balancer
+kubectl apply -f service-lb.yaml
+sudo iptables -t nat -L KUBE-SERVICES
+sudo iptables -t nat -L KUBE-FW-
+
+# ExternalPolicyLocal
+kubectl apply -f service-lb-local.yaml
+sudo iptables -t nat -L KUBE-FW-
+
+# Add loadBalancerSourceRanges
+kubectl apply -f service-lb.yaml
+sudo iptables -t nat -L KUBE-FW-
+
+# Health checks
+curl -v localhost:10256/healthz
+kubectl apply -f service-lb-local.yaml
+kubectl describe svc echo
+curl -v localhost:<HealthCheck NodePort>
+
+
+### ipvs
+kubectx lbipvs.eu1.staging.dog
+kubectl apply -f deployment.yaml -f service.yaml
+kubectl get all
+
+kubectl run -it test  --image appropriate/curl ash
+while true ; do curl <service ip> ; sleep 1 ; done
+
+ssh <node>
+sudo ipvsadm --list --numeric --tcp-service 10.200.200.68:80
+sudo ip -d addr show dev kube-ipvs0
+
+## Persistency
+k apply -f service-persistent.yaml
+sudo ipvsadm --list --numeric --tcp-service 10.200.200.68:80
+
+## Hairpin
+sudo iptables -t nat -L KUBE-POSTROUTING
+sudo ipset -L KUBE-LOOP-BACK
+
+## NodePort
+k apply -f service-node-port.yaml
+hostname -I
+sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
+sudo iptables -t nat -L KUBE-SERVICES
+sudo ipset -L KUBE-NODE-PORT-TCP
+
+## Nodeport Local
+k apply -f service-np-local.yaml
+sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
+sudo iptables -t nat -L KUBE-SERVICES
+
+# host without pod
+sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
+
+## LB service
+k apply -f service-lb.yaml
+sudo ipvsadm -L -n -t <LBIP>:80
+sudo ip route show table local
+sudo iptables -t nat -L KUBE-SERVICES
+sudo ipset -L KUBE-LOAD-BALANCER-MASQ
+
+
+## DNS
+k exec -it test-7b944db754-g885v sh
+cat /etc/resolv.conf
+curl echo
+
+
+## External access
+ssh laurent.bernaille@datadog-kube-client
+curl <podip>:5000
+curl <serviceip>
+
+sudo iptables -t nat -N KUBE-MARK-DROP
+sudo iptables -t nat -A KUBE-MARK-DROP -j MARK --set-xmark 0x8000/0x8000
+
+sudo ./kube-proxy --kubeconfig=kubeconfig
+while true ; do curl 10.200.164.177 ; sleep 1 ; done
+
+cat /etc/dnsmasq.conf
+while true ; do curl echo.default.svc.cluster.local ; sleep 1 ; done
+
+
