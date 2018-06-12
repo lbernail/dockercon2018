@@ -1,0 +1,12 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: echo
+spec:
+  rules:
+  - host: echo.datadog.test
+    http:
+      paths:
+      -  backend:
+          serviceName: echo
+          servicePort: 80

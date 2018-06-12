@@ -1,22 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: echodeploy
+  name: echodeployv2
   labels:
-    app: echo
+    app: echov2
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: echo
+      app: echov2
   template:
     metadata:
       labels:
-        app: echo
+        app: echov2
     spec:
       containers:
-      - name: echopod
+      - name: echopodv2
         image: lbernail/echo:0.5
+        env:
+          - name: VERSION
+            value: demo
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
@@ -32,3 +35,34 @@ spec:
             periodSeconds: 5
             successThreshold: 1
             failureThreshold: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echov2
+  labels:
+    app: echov2
+spec:
+  type: ClusterIP
+  selector:
+    app: echov2
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 5000
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: echov2
+spec:
+  rules:
+  - host: echov2.datadog.test
+    http:
+      paths:
+      -  backend:
+          serviceName: echov2
+          servicePort: 80
