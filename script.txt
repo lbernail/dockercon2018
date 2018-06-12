@@ -24,50 +24,6 @@ kubectl describe pod <unready pod>
 
 ## Set pod as ready
 
-# Liveness probe
-kubectl exec -it <curl pod> sh
-curl <podip>:5000/alive
-curl <podip>:5000/toggleAlive
-curl <podip>:5000/alive
-
-kubectl describe pod <dead pod>
-# Container failed liveness probe.. Container will be killed and recreated.
-kubectl get pods
-# Restarts: 1
-
-# How does that work?
-Endpoint controller sync services on events:
-- Add / Update / Delete on Services
-- Add / Update / Delete on Pod
-Sync: list pods with service selector and update endpoints
-
-# Easy to a pod to the list
-kubectl apply -f pod.yaml
-kubectl describe ep echo
-kubectl label pod echodeploy app=echo
-kubectl describe ep echo
-kubectl label pod echodeploy app-
-
-# Endoints can be "manually" modified
-kubectl get pods echodeploy -o wide
-kubectl edit ep echo
-## Update nodename, pod name and pod ip
-kubectl describe ep echo
-
-## queries routed to pod
-
-# But any sync will remove this
-kubectl scale --replicas=2 deploy/echodeploy
-
-# 2 different types of services
-- selector-less disable endpoint sync
-- selector will sync endpoints and remove any external modification
-
-
-# iptables
-kubectl scale --replicas=3 deploy/echodeploy
-ssh ddeng@
-
 sudo iptables -t nat -L KUBE-SERVICES
 sudo iptables -t nat -L KUBE-SVC-
 sudo iptables -t nat -L KUBE-SEP-
@@ -78,56 +34,12 @@ kubectl exec echodeploy-xxxx -it sh
 hostname -i
 while true ; do wget -q -O - 10.200.20.164 ; sleep 1 ; done
 
-# on host
-sudo iptables -t nat -xnvL KUBE-SEP-JVW5VSGQKTKS2CU3 ; sudo iptables -t nat -xnvL KUBE-SEP-3V46NEEGFOGNZYNM ; sudo iptables -t nat -xnvL KUBE-SEP-TG6PR7XSUYRA3RGR
-
 # affinity
 kubectl apply -f service-persistent.yaml
 curl 10.200.20.164 ; curl 10.200.20.164 ; curl 10.200.20.164
 
-sudo iptables -t nat -L KUBE-SVC-ZJMBFACUQCTMIK2C
-cat /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
-
-sudo -i
-echo -10.1.176.4 > /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
-cat /proc/net/xt_recent/KUBE-SEP-JVW5VSGQKTKS2CU3
-curl 10.200.20.164
-
-
-# nodeport
-kubectl apply -f service-node-port.yaml
-sudo iptables -t nat -L KUBE-SERVICES
-sudo iptables -t nat -L KUBE-NODEPORTS
-while true; do curl 10.1.176.4:31017 ; sleep 1; done
-
-# external traffic policy
-kubectl apply -f service-np-local.yaml
-sudo iptables -t nat -L KUBE-NODEPORTS
-sudo iptables -t nat -L KUBE-XLB-XXX
-
-while true; do curl 10.1.176.4:31017 ; sleep 1; done
-
-kubectl scale --replicas=1 deploy/echodeploy
-
-# load-balancer
-kubectl apply -f service-lb.yaml
-sudo iptables -t nat -L KUBE-SERVICES
-sudo iptables -t nat -L KUBE-FW-
-
-# ExternalPolicyLocal
-kubectl apply -f service-lb-local.yaml
-sudo iptables -t nat -L KUBE-FW-
-
-# Add loadBalancerSourceRanges
-kubectl apply -f service-lb.yaml
-sudo iptables -t nat -L KUBE-FW-
-
-# Health checks
-curl -v localhost:10256/healthz
-kubectl apply -f service-lb-local.yaml
-kubectl describe svc echo
-curl -v localhost:<HealthCheck NodePort>
-
+sudo iptables -t nat -L KUBE-SVC-
+cat /proc/net/xt_recent/KUBE-SEP-
 
 ### ipvs
 kubectx lbipvs.eu1.staging.dog
@@ -149,34 +61,10 @@ sudo ipvsadm --list --numeric --tcp-service 10.200.200.68:80
 sudo iptables -t nat -L KUBE-POSTROUTING
 sudo ipset -L KUBE-LOOP-BACK
 
-## NodePort
-k apply -f service-node-port.yaml
-hostname -I
-sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
-sudo iptables -t nat -L KUBE-SERVICES
-sudo ipset -L KUBE-NODE-PORT-TCP
-
-## Nodeport Local
-k apply -f service-np-local.yaml
-sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
-sudo iptables -t nat -L KUBE-SERVICES
-
-# host without pod
-sudo ipvsadm --list --numeric --tcp-service <hostip>:<nodeport>
-
-## LB service
-k apply -f service-lb.yaml
-sudo ipvsadm -L -n -t <LBIP>:80
-sudo ip route show table local
-sudo iptables -t nat -L KUBE-SERVICES
-sudo ipset -L KUBE-LOAD-BALANCER-MASQ
-
-
 ## DNS
 k exec -it test-7b944db754-g885v sh
 cat /etc/resolv.conf
 curl echo
-
 
 ## External access
 ssh laurent.bernaille@datadog-kube-client
@@ -194,27 +82,11 @@ while true ; do curl echo.default.svc.cluster.local ; sleep 1 ; done
 
 ### L7 load-balancing
 
-## Ingress controllers
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
-kubectl apply -f ingress-service.yaml
-
-# Create an ingress
-kubectl apply -f echo-ingress.yaml
-curl -H "Host: echo.datadog.test" 10.1.224.13
-
-# Create an second ingress
-kubectl apply -f echov2.yaml
-kubectl get ingresses
-curl -H "Host: echov2.datadog.test" 10.1.224.13
-
-# Under the hood
-kubectl -n ingress-nginx get all
-curl <LB IP>
-
-kubectl -n ingress-nginx exec nginx-ingress-controller-58c9df5856-d7jhb cat /etc/nginx/nginx.conf
-kubectl -n ingress-nginx exec nginx-ingress-controller-58c9df5856-d7jhb cat /etc/nginx/nginx.conf | sed -n '/upstream .*{/,/}/p
-
 ### istio
+source ~/dockeree/env
+docker node ls
+kubectk get nodes
+
 kubectl apply -f istio_demo.yaml
 
 kubectl apply -f curl.yaml
@@ -225,7 +97,7 @@ curl echo
 
 istioctl create -f istio_routes.yaml
 curl echo
-istioctl create -f istio_canary.yaml
+istioctl replace -f istio_canary.yaml
 curl echo
 
-curl -H "" echo
+curl -H "canary: v2" echo
