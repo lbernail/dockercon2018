@@ -80,24 +80,3 @@ while true ; do curl 10.200.164.177 ; sleep 1 ; done
 cat /etc/dnsmasq.conf
 while true ; do curl echo.default.svc.cluster.local ; sleep 1 ; done
 
-### L7 load-balancing
-
-### istio
-source ~/dockeree/env
-docker node ls
-kubectk get nodes
-
-kubectl apply -f istio_demo.yaml
-
-kubectl apply -f curl.yaml
-curl echo
-
-kubectl apply -f <(istioctl kube-inject -f curl.yaml)
-curl echo
-
-istioctl create -f istio_routes.yaml
-curl echo
-istioctl replace -f istio_canary.yaml
-curl echo
-
-curl -H "canary: v2" echo
